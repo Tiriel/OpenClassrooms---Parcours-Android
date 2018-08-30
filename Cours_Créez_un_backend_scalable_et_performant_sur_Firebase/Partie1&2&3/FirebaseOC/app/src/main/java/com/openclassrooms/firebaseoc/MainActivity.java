@@ -5,10 +5,13 @@ import android.support.design.widget.CoordinatorLayout;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.widget.Button;
 
 import com.firebase.ui.auth.AuthUI;
 import com.firebase.ui.auth.ErrorCodes;
 import com.firebase.ui.auth.IdpResponse;
+import com.openclassrooms.firebaseoc.api.UserHelper;
+import com.openclassrooms.firebaseoc.auth.ProfileActivity;
 import com.openclassrooms.firebaseoc.base.BaseActivity;
 
 import java.util.Arrays;
@@ -20,6 +23,8 @@ public class MainActivity extends BaseActivity {
 
     // FOR DESIGN
     @BindView(R.id.main_activity_coordinator_layout) CoordinatorLayout coordinatorLayout;
+    // 1 - Getting Login Button
+    @BindView(R.id.main_activity_button_login) Button buttonLogin;
     // FOR DATA
     private static final int RC_SIGN_IN = 123;
 
@@ -30,11 +35,23 @@ public class MainActivity extends BaseActivity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        // 5 - Update UI when activity is resuming
+        this.updateUIWhenResuming();
+    }
+
+    @Override
     public int getFragmentLayout() { return R.layout.activity_main; }
 
     @OnClick(R.id.main_activity_button_login)
-    public void onClickLoginbutton() {
-        this.startSignInActivity();
+    public void onClickLoginButton() {
+        // 4 - Start appropriate activity
+        if (this.isCurrentUserLogged()){
+            this.startProfileActivity();
+        } else {
+            this.startSignInActivity();
+        }
     }
 
     private void startSignInActivity() {
@@ -54,14 +71,34 @@ public class MainActivity extends BaseActivity {
         );
     }
 
+    // 3 - Launching Profile Activity
+    private void startProfileActivity(){
+        Intent intent = new Intent(this, ProfileActivity.class);
+        startActivity(intent);
+    }
+
     private void showSnackBar(CoordinatorLayout coordinatorLayout, String message) {
         Snackbar.make(coordinatorLayout, message, Snackbar.LENGTH_SHORT).show();
+    }
+
+    // 1 - Http request that create user in firestore
+    private void createUserInFirestore(){
+
+        if (this.getCurrentUser() != null){
+
+            String urlPicture = (this.getCurrentUser().getPhotoUrl() != null) ? this.getCurrentUser().getPhotoUrl().toString() : null;
+            String username = this.getCurrentUser().getDisplayName();
+            String uid = this.getCurrentUser().getUid();
+
+            UserHelper.createUser(uid, username, urlPicture).addOnFailureListener(this.onFailureListener());
+        }
     }
 
     private void handleResponseAfterSignIn(int requestCode, int resultCode, Intent data) {
         IdpResponse response = IdpResponse.fromResultIntent(data);
         if (requestCode == RC_SIGN_IN) {
             if (resultCode == RESULT_OK) {
+                this.createUserInFirestore();
                 showSnackBar(this.coordinatorLayout, getString(R.string.connection_succeed));
             } else {
                 if (response == null) {
@@ -73,5 +110,10 @@ public class MainActivity extends BaseActivity {
                 }
             }
         }
+    }
+
+    // 2 - Update UI when activity is resuming
+    private void updateUIWhenResuming(){
+        this.buttonLogin.setText(this.isCurrentUserLogged() ? getString(R.string.button_login_text_logged) : getString(R.string.button_login_text_not_logged));
     }
 }
